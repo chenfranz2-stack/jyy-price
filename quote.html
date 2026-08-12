@@ -127,6 +127,19 @@
         <div class="rate-hint" id="rateHint" data-i18n="rateHint">汇率 1 USD = 6.75 CNY</div>
       </div>
     </div>
+    <div class="grid g3">
+      <div>
+        <label class="lbl" data-i18n="fabricDiscLbl">面料折扣系数</label>
+        <input type="number" id="fabricDisc" value="1" min="0" step="0.01">
+      </div>
+      <div>
+        <label class="lbl" data-i18n="laborDiscLbl">加工费折扣系数</label>
+        <input type="number" id="laborDisc" value="1" min="0" step="0.01">
+      </div>
+      <div>
+        <div class="rate-hint" data-i18n="discHint">1 = 无折扣，如 0.85 = 85折</div>
+      </div>
+    </div>
     <h3 data-i18n="productTitle">产品类型</h3>
     <div class="grid g7" id="productTypes">
       <div class="radio-card" data-v="maleSuit" data-i18n="prod_maleSuit">男西服套装</div>
@@ -225,6 +238,7 @@ const I18N = {
     fee_pantsSemiProductFitting:'西裤半成品试衣', fee_pantsShellFitting:'西裤毛壳试衣',
     fee_vestWithCollar:'带领马甲', fee_vestShellFitting:'马甲毛壳试衣',
     customFeeTitle:'自定义其他费用', calcBtn:'开始核算', savePlanBtn:'保存方案', loadPlanBtn:'加载方案',
+    fabricDiscLbl:'面料折扣系数', laborDiscLbl:'加工费折扣系数', discHint:'1 = 无折扣，如 0.85 = 85折',
     resultTitle:'核算结果', refTitle:'快速参考',
     plansTitle:'已保存的方案', closeBtn:'关闭', noPlans:'暂无保存的方案', planSaved:'方案已保存 ✅',
     useFabricBtn:'使用此面料', directPrice:'成衣价', fabricUnit:'面料单价', perMeter:'/米', noPrice:'无价格数据',
@@ -252,6 +266,7 @@ const I18N = {
     fee_pantsSemiProductFitting:'Basted Fitting', fee_pantsShellFitting:'Shell Fitting',
     fee_vestWithCollar:'Collared Waistcoat', fee_vestShellFitting:'Shell Fitting',
     customFeeTitle:'Other Custom Fees', calcBtn:'Calculate', savePlanBtn:'Save Plan', loadPlanBtn:'Load Plan',
+    fabricDiscLbl:'Fabric Discount Factor', laborDiscLbl:'Labor Discount Factor', discHint:'1 = no discount, e.g. 0.85 = 15% off',
     resultTitle:'Result', refTitle:'Quick Reference',
     plansTitle:'Saved Plans', closeBtn:'Close', noPlans:'No saved plans yet', planSaved:'Plan saved ✅',
     useFabricBtn:'Use this fabric', directPrice:'Garment price', fabricUnit:'Fabric price', perMeter:'/m', noPrice:'No price data',
@@ -370,16 +385,21 @@ function updateFeeVisibility() {
 // ===== 核算 =====
 function calc() {
   const fabricPrice = parseFloat(document.getElementById('fabricPrice').value) || 0;
+  const fabricDisc = parseFloat(document.getElementById('fabricDisc').value);
+  const laborDisc = parseFloat(document.getElementById('laborDisc').value);
+  const fd = (isFinite(fabricDisc) && fabricDisc > 0) ? fabricDisc : 1;
+  const ld = (isFinite(laborDisc) && laborDisc > 0) ? laborDisc : 1;
   const pattern = document.getElementById('fabricPattern').value;
   const p = PRODUCT_CFG[selProduct];
   const usage = p.usage[selSize] + PATTERN_EXTRA[pattern][selProduct];
-  const fabricCost = fabricPrice * usage;
+  const fabricCost = fabricPrice * usage * fd;
   let addFees = 0;
   if (['maleJacket','femaleJacket','coat','maleSuit','femaleSuit'].includes(selProduct)) addFees += jacketCoatFees();
   if (['pants','maleSuit','femaleSuit'].includes(selProduct)) addFees += pantsFees();
   if (selProduct === 'vest') addFees += vestFees();
   addFees += parseFloat(document.getElementById('customOtherFee').value) || 0;
-  const total = fabricCost + p.baseLabor + addFees;
+  const laborCost = (p.baseLabor + addFees) * ld;
+  const total = fabricCost + laborCost;
 
   document.getElementById('totalPrice').textContent = money2(total);
   const feeLines = [];
@@ -393,11 +413,20 @@ function calc() {
   if (customFee > 0) feeLines.push(t('customFeeTitle') + ' +' + (currency === 'USD' ? '$' + (customFee / USD_RATE).toFixed(2) : customFee));
   const sz = t('size_' + selSize);
   const pt = t('pat_' + pattern);
+  const fabricLine = (fd !== 1)
+    ? `${t('fabric')}: ${money2(fabricPrice)}${t('perMeter')} × ${usage.toFixed(2)}${t('unitM')} × ${fd} = ${money2(fabricCost)}`
+    : `${t('fabric')}: ${money2(fabricPrice)}${t('perMeter')} × ${usage.toFixed(2)}${t('unitM')} = ${money2(fabricCost)}`;
+  const laborLine = (ld !== 1)
+    ? `${t('labor')}: ${money2(p.baseLabor + addFees)} × ${ld} = ${money2(laborCost)}`
+    : `${t('labor')}: ${money2(p.baseLabor)}`;
+  const feesLine = (ld !== 1)
+    ? `${t('fees')}: ${money2(addFees)} × ${ld} = ${money2(addFees * ld)}${feeLines.length ? '（' + feeLines.join('，') + '）' : ''}`
+    : `${t('fees')}: ${money2(addFees)}${feeLines.length ? '（' + feeLines.join('，') + '）' : ''}`;
   document.getElementById('priceDetail').innerHTML =
     `<b>${t(p.key)}</b>（${sz} · ${pt}）<br>
-     ${t('fabric')}: ${money2(fabricPrice)}${t('perMeter')} × ${usage.toFixed(2)}${t('unitM')} = ${money2(fabricCost)}<br>
-     ${t('labor')}: ${money2(p.baseLabor)}<br>
-     ${t('fees')}: ${money2(addFees)}${feeLines.length ? '（' + feeLines.join('，') + '）' : ''}<br>
+     ${fabricLine}<br>
+     ${laborLine}<br>
+     ${feesLine}<br>
      <b>${t('total')}: ${money2(total)}</b>`;
   document.getElementById('result').classList.remove('hidden');
 }
@@ -412,6 +441,8 @@ function savePlan() {
     productType: selProduct,
     sizeRange: selSize,
     customOtherFee: document.getElementById('customOtherFee').value,
+    fabricDisc: document.getElementById('fabricDisc').value,
+    laborDisc: document.getElementById('laborDisc').value,
     halfLining: document.getElementById('halfLining').checked,
     handmadeEyelet: document.getElementById('handmadeEyelet').checked,
     rushOrder: document.getElementById('rushOrder').checked,
@@ -448,6 +479,8 @@ function loadPlan(idx) {
   document.getElementById('fabricPrice').value = p.fabricPrice;
   document.getElementById('fabricPattern').value = p.fabricPattern;
   document.getElementById('customOtherFee').value = p.customOtherFee;
+  if (p.fabricDisc != null) document.getElementById('fabricDisc').value = p.fabricDisc;
+  if (p.laborDisc != null) document.getElementById('laborDisc').value = p.laborDisc;
   selProduct = p.productType; selSize = p.sizeRange;
   syncRadio();
   for (const id of Object.keys(FEE_MAP)) document.getElementById(id).checked = !!p[id];
@@ -499,6 +532,8 @@ document.getElementById('currencySel').addEventListener('change', e => {
 // ===== 事件 =====
 document.getElementById('q').addEventListener('input', renderSearch);
 document.getElementById('fabricPrice').addEventListener('input', calc);
+document.getElementById('fabricDisc').addEventListener('input', calc);
+document.getElementById('laborDisc').addEventListener('input', calc);
 document.getElementById('fabricPattern').addEventListener('change', calc);
 document.getElementById('customOtherFee').addEventListener('input', calc);
 document.querySelectorAll('#productTypes .radio-card').forEach(el => el.addEventListener('click', () => { selProduct = el.dataset.v; syncRadio(); updateFeeVisibility(); calc(); }));
