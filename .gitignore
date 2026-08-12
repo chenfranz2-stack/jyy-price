@@ -1,0 +1,8 @@
+node_modules/
+pdf-pages/
+*.txt
+!quote.html
+inspect-pdf*.cjs
+debug-*.mjs
+dump-all-sheets.mjs
+overview-sheets.mjs
