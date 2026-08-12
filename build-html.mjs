@@ -1,25 +1,7 @@
-// 生成独立 quote.html v4：中英文切换 + 货币选择(CNY/USD, 汇率6.75) + 面料库搜索 + 完整核算
-// v4 新增：fabric-imgs/ 目录下按货号命名的 jpg 面料照片 → base64 内嵌 DB，搜索结果显示缩略图
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
-import { join } from 'path';
+// 生成独立 quote.html v3：中英文切换 + 货币选择(CNY/USD, 汇率6.75) + 面料库搜索 + 完整核算
+import { readFileSync, writeFileSync } from 'fs';
 
-const dbRaw = JSON.parse(readFileSync('fabrics-db.json', 'utf8'));
-const db = Array.isArray(dbRaw) ? dbRaw : (dbRaw.fabrics || dbRaw.items || []);
-
-// ===== 加载面料照片（fabric-imgs/<货号>.jpg → base64 内嵌）=====
-const IMG_DIR = 'fabric-imgs';
-const imgMap = {};
-if (existsSync(IMG_DIR)) {
-  for (const f of readdirSync(IMG_DIR)) {
-    if (!/\.jpg$/i.test(f)) continue;
-    const code = f.replace(/\.jpg$/i, '');
-    imgMap[code] = 'data:image/jpeg;base64,' + readFileSync(join(IMG_DIR, f)).toString('base64');
-  }
-}
-let imgCount = 0;
-for (const r of db) {
-  if (imgMap[r.code]) { r.img = imgMap[r.code]; imgCount++; }
-}
+const db = JSON.parse(readFileSync('fabrics-db.json', 'utf8'));
 
 const html = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -72,13 +54,6 @@ const html = `<!DOCTYPE html>
   .plan-item { border: 1px solid #eee; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; font-size: 13px; }
   .plan-item:hover { background: #f7f4ee; }
   .plan-item .t { color: #999; font-size: 11px; }
-  .fabric-img { width: 86px; height: 64px; object-fit: cover; border-radius: 6px; cursor: zoom-in; border: 1px solid #e5e0d6; background: #faf8f4; float: right; margin: 2px 0 0 10px; }
-  .fabric-img:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
-  .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.82); display: flex; align-items: center; justify-content: center; z-index: 99; }
-  .lightbox img { max-width: 92vw; max-height: 88vh; border-radius: 8px; box-shadow: 0 4px 30px rgba(0,0,0,.5); }
-  .lightbox .lb-close { position: fixed; top: 18px; right: 24px; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; opacity: .85; z-index: 100; background: none; border: none; }
-  .lightbox .lb-close:hover { opacity: 1; }
-  .lightbox .lb-code { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,.55); padding: 6px 16px; border-radius: 20px; font-size: 14px; letter-spacing: .5px; }
   .modal { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
   .modal-box { background: #fff; border-radius: 10px; padding: 18px; width: 420px; max-height: 80vh; overflow-y: auto; }
   .modal-box h3 { margin-bottom: 10px; }
@@ -223,13 +198,6 @@ const html = `<!DOCTYPE html>
   </div>
 </div>
 
-<!-- 面料照片放大 -->
-<div class="lightbox hidden" id="fabricLightbox" onclick="this.classList.add('hidden')">
-  <img id="fabricLightboxImg" alt="">
-  <button class="lb-close" onclick="document.getElementById('fabricLightbox').classList.add('hidden')" aria-label="Close">×</button>
-  <div class="lb-code" id="fabricLightboxCode"></div>
-</div>
-
 <!-- 方案弹窗 -->
 <div class="modal hidden" id="plansModal">
   <div class="modal-box">
@@ -360,9 +328,7 @@ function renderSearch() {
     if (r.direct) priceTxt = \`<span style="color:#8a5a2b">\${t('directPrice')}: 上衣 \${money(r.jacket)} / 裤子 \${money(r.trousers)} / 马甲 \${money(r.vest)}</span>\`;
     else if (r.pricePerMeter != null) priceTxt = \`\${t('fabricUnit')} \${money(r.pricePerMeter)}\${t('perMeter')}\`;
     else priceTxt = t('noPrice');
-    const imgHtml = r.img ? \`<img class="fabric-img" src="\${r.img}" alt="\${r.code}" onclick="showFabricImg('\${r.img}', '\${r.code}')" loading="lazy">\` : '';
     return \`<div class="card">
-      \${imgHtml}
       <button class="use-btn" onclick="useFabric('\${r.code.replace(/'/g, "\\\\'")}', \${r.pricePerMeter ?? 'null'})">\${t('useFabricBtn')} →</button>
       <h3>\${r.code} <span class="brand">\${r.brand || ''}</span></h3>
       <div class="meta">\${r.source}\${extra ? ' · ' + extra : ''}</div>
@@ -380,15 +346,6 @@ function useFabric(code, price) {
   document.getElementById('calcPanel').scrollIntoView({ behavior: 'smooth' });
 }
 window.useFabric = useFabric;
-
-// ===== 面料照片放大 =====
-function showFabricImg(src, code) {
-  document.getElementById('fabricLightboxImg').src = src;
-  document.getElementById('fabricLightboxCode').textContent = code || '';
-  document.getElementById('fabricLightbox').classList.remove('hidden');
-}
-window.showFabricImg = showFabricImg;
-document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('fabricLightbox').classList.add('hidden'); });
 
 // ===== 附加费 =====
 const FEE_MAP = {
@@ -571,4 +528,4 @@ applyLang();
 
 const out = html.replace('__DATA__', JSON.stringify(db));
 writeFileSync('quote.html', out, 'utf8');
-console.log('quote.html v4 生成:', (out.length / 1024).toFixed(0) + ' KB,', db.length, '条面料,', imgCount, '张面料照片内嵌');
+console.log('quote.html v3 生成:', (out.length / 1024).toFixed(0) + ' KB,', db.length, '条面料');
