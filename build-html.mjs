@@ -403,7 +403,7 @@ function calc() {
   if (['pants','maleSuit','femaleSuit'].includes(selProduct)) addFees += pantsFees();
   if (selProduct === 'vest') addFees += vestFees();
   addFees += parseFloat(document.getElementById('customOtherFee').value) || 0;
-  const laborCost = (p.baseLabor + addFees) * ld;
+  const laborCost = p.baseLabor * ld + addFees;
   const total = fabricCost + laborCost;
 
   document.getElementById('totalPrice').textContent = money2(total);
@@ -422,11 +422,9 @@ function calc() {
     ? \`\${t('fabric')}: \${money2(fabricPrice)}\${t('perMeter')} × \${usage.toFixed(2)}\${t('unitM')} × \${fd} = \${money2(fabricCost)}\`
     : \`\${t('fabric')}: \${money2(fabricPrice)}\${t('perMeter')} × \${usage.toFixed(2)}\${t('unitM')} = \${money2(fabricCost)}\`;
   const laborLine = (ld !== 1)
-    ? \`\${t('labor')}: \${money2(p.baseLabor + addFees)} × \${ld} = \${money2(laborCost)}\`
+    ? \`\${t('labor')}: \${money2(p.baseLabor)} × \${ld} = \${money2(p.baseLabor * ld)}\`
     : \`\${t('labor')}: \${money2(p.baseLabor)}\`;
-  const feesLine = (ld !== 1)
-    ? \`\${t('fees')}: \${money2(addFees)} × \${ld} = \${money2(addFees * ld)}\${feeLines.length ? '（' + feeLines.join('，') + '）' : ''}\`
-    : \`\${t('fees')}: \${money2(addFees)}\${feeLines.length ? '（' + feeLines.join('，') + '）' : ''}\`;
+  const feesLine = \`\${t('fees')}: \${money2(addFees)}\${feeLines.length ? '（' + feeLines.join('，') + '）' : ''}\`;
   document.getElementById('priceDetail').innerHTML =
     \`<b>\${t(p.key)}</b>（\${sz} · \${pt}）<br>
      \${fabricLine}<br>

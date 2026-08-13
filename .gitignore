@@ -6,3 +6,6 @@ inspect-pdf*.cjs
 debug-*.mjs
 dump-all-sheets.mjs
 overview-sheets.mjs
+
+_*.mjs
+.chrome-lab-test/
